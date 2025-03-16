@@ -117,7 +117,6 @@
 
     <div id="image-container">
       <div class="text-center">
-        <!-- Título com informações da imagem original -->
         <h3 id="original-title">Imagem Original</h3>
         <canvas id="original-canvas"></canvas>
         <div class="btn-group">
@@ -185,13 +184,14 @@
       }
     });
 
-    // Atualiza a qualidade e refaz a visualização da imagem original
+    // Atualiza a qualidade e refaz a visualização da imagem original se for JPEG/WEBP (PNG permanece inalterado)
     qualityRange.addEventListener("input", () => {
       qualityValue.textContent = qualityRange.value;
       if (imagemOriginal) {
-        desenharImagemComQualidade(imagemOriginal);
+        // Recupera a extensão da imagem atual
+        const { extension } = imagensCarregadas[imagemSelecionadaIndex];
+        desenharImagemComQualidade(imagemOriginal, extension);
       }
-      // Atualiza os tamanhos de download para ambos os campos
       atualizarDownloadTamanhos(document.getElementById("original-canvas"), "original");
       atualizarDownloadTamanhos(document.getElementById("effect-canvas"), "effect");
     });
@@ -210,7 +210,6 @@
             const fileSize = file.size;
             imagensCarregadas.push({ img, nomeArquivo, extension, fileSize });
             atualizarThumbnails();
-            // Seleciona automaticamente a primeira imagem carregada
             if (imagensCarregadas.length === 1) {
               selecionarImagem(0);
             }
@@ -257,10 +256,9 @@
       });
       const { img, fileSize, extension } = imagensCarregadas[index];
       imagemOriginal = img;
-      // Atualiza o título da imagem original com tamanho e extensão
       document.getElementById("original-title").textContent =
         `Imagem Original (${formatFileSize(fileSize)}, ${extension})`;
-      desenharImagemComQualidade(img);
+      desenharImagemComQualidade(img, extension);
       aplicarEfeito();
     }
 
@@ -288,27 +286,35 @@
       effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
     }
 
-    // Função para desenhar a imagem original com o parâmetro de qualidade aplicado
-    function desenharImagemComQualidade(img) {
+    // Se a imagem for PNG, desenha-a diretamente para manter a transparência;
+    // caso contrário, re-encoda com a qualidade definida (usando JPEG)
+    function desenharImagemComQualidade(img, extension) {
       const canvas = document.getElementById("original-canvas");
-      const quality = qualityRange ? qualityRange.value / 100 : 1;
+      const ctx = canvas.getContext("2d");
       canvas.width = img.width;
       canvas.height = img.height;
-      // Utiliza um canvas off-screen para obter o dataURL com qualidade definida
-      const offscreen = document.createElement("canvas");
-      offscreen.width = img.width;
-      offscreen.height = img.height;
-      const offCtx = offscreen.getContext("2d");
-      offCtx.drawImage(img, 0, 0, img.width, img.height);
-      const dataUrl = offscreen.toDataURL("image/jpeg", quality);
-      const newImg = new Image();
-      newImg.onload = () => {
-        const ctx = canvas.getContext("2d");
+      if (extension.toLowerCase() === "png") {
+        // Desenha diretamente para manter a transparência
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(newImg, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, img.width, img.height);
         atualizarDownloadTamanhos(canvas, "original");
-      };
-      newImg.src = dataUrl;
+      } else {
+        const quality = qualityRange ? qualityRange.value / 100 : 1;
+        const offscreen = document.createElement("canvas");
+        offscreen.width = img.width;
+        offscreen.height = img.height;
+        const offCtx = offscreen.getContext("2d");
+        offCtx.drawImage(img, 0, 0, img.width, img.height);
+        // Utiliza JPEG para re-encoding com qualidade
+        const dataUrl = offscreen.toDataURL("image/jpeg", quality);
+        const newImg = new Image();
+        newImg.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(newImg, 0, 0, canvas.width, canvas.height);
+          atualizarDownloadTamanhos(canvas, "original");
+        };
+        newImg.src = dataUrl;
+      }
     }
 
     function aplicarEfeito() {
@@ -387,11 +393,9 @@
     }
 
     function atualizarDownloadTamanhos(canvas, prefix) {
-      // Obtém a qualidade (0 a 1) a partir do slider
       const quality = qualityRange ? qualityRange.value / 100 : 1;
       ["png", "jpeg", "webp"].forEach(format => {
         const mimeType = (format === "jpeg") ? "image/jpeg" : "image/" + format;
-        // Para PNG, o parâmetro qualidade é ignorado
         const qualityParam = (format === "png") ? undefined : quality;
         canvas.toBlob(blob => {
           document.getElementById(prefix + '-' + format + '-size').textContent = formatFileSize(blob.size);
