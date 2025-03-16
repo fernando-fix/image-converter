@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor & Efeitos de Imagem</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #drop-area {
+      border: 2px dashed #007bff;
+      padding: 20px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      max-width: 640px;
+      margin: 0 auto;  /* Centralizada */
+    }
+    #thumbnail-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .thumbnail {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border: 2px solid transparent;
+      cursor: pointer;
+    }
+    .thumbnail.selected {
+      border: 2px solid #007bff;
+    }
+    #image-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 20px;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      max-width: 100%;
+      max-height: 250px; /* Previews não ultrapassam 250px de altura */
+    }
+    .download-btn {
+      margin: 5px;
+    }
+    .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background-color: red;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      line-height: 18px;
+      font-size: 12px;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <h1 class="mb-4 text-center">Conversor & Efeitos de Imagem</h1>
+    
+    <div id="drop-area" class="mb-3 text-center">
+      <p>Arraste uma ou mais imagens aqui ou clique para selecionar</p>
+      <input type="file" id="upload" accept="image/*" hidden multiple>
+    </div>
+
+    <div id="thumbnail-container"></div>
+
+    <div class="row mb-3">
+      <div class="col-md-6 offset-md-3">
+        <div class="input-group">
+          <label class="input-group-text" for="effect">Efeito</label>
+          <select id="effect" class="form-select">
+            <option value="pixel">Efeito Pixel</option>
+            <option value="blur">Efeito Blur</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-6 offset-md-3">
+        <label class="form-label">Nível do Efeito: <span id="effect-value">20</span></label>
+        <input type="range" id="effect-range" class="form-range" min="2" max="50" value="20">
+      </div>
+    </div>
+
+    <div id="image-container">
+      <div class="text-center">
+        <h3>Imagem Original</h3>
+        <canvas id="original-canvas"></canvas>
+        <div class="btn-group">
+          <button class="btn btn-primary download-btn" onclick="baixarImagem('png', false)">
+            Baixar PNG (<span id="original-png-size">0 KB</span>)
+          </button>
+          <button class="btn btn-primary download-btn" onclick="baixarImagem('jpeg', false)">
+            Baixar JPEG (<span id="original-jpeg-size">0 KB</span>)
+          </button>
+          <button class="btn btn-primary download-btn" onclick="baixarImagem('webp', false)">
+            Baixar WEBP (<span id="original-webp-size">0 KB</span>)
+          </button>
+        </div>
+      </div>
+      <div class="text-center">
+        <h3>Imagem Modificada</h3>
+        <canvas id="effect-canvas"></canvas>
+        <div class="btn-group">
+          <button class="btn btn-success download-btn" onclick="baixarImagem('png', true)">
+            Baixar PNG (<span id="effect-png-size">0 KB</span>)
+          </button>
+          <button class="btn btn-success download-btn" onclick="baixarImagem('jpeg', true)">
+            Baixar JPEG (<span id="effect-jpeg-size">0 KB</span>)
+          </button>
+          <button class="btn btn-success download-btn" onclick="baixarImagem('webp', true)">
+            Baixar WEBP (<span id="effect-webp-size">0 KB</span>)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let imagemOriginal = null; // Imagem atualmente selecionada
+    let imagensCarregadas = []; // Array que armazena { img, nomeArquivo, fileSize }
+    let imagemSelecionadaIndex = 0;
+
+    const dropArea = document.getElementById("drop-area");
+    const uploadInput = document.getElementById("upload");
+    const effectValue = document.getElementById("effect-value");
+    const effectRange = document.getElementById("effect-range");
+    const effectType = document.getElementById("effect");
+
+    dropArea.addEventListener("click", () => uploadInput.click());
+    dropArea.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropArea.classList.add("bg-light");
+    });
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("bg-light");
+    });
+    dropArea.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropArea.classList.remove("bg-light");
+      if (event.dataTransfer.files.length) {
+        carregarImagens(event.dataTransfer.files);
+      }
+    });
+
+    uploadInput.addEventListener("change", function (event) {
+      if (event.target.files.length) {
+        carregarImagens(event.target.files);
+      }
+    });
+
+    function carregarImagens(files) {
+      imagensCarregadas = [];
+      document.getElementById("thumbnail-container").innerHTML = "";
+      const filesArray = Array.from(files);
+
+      filesArray.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = new Image();
+          img.onload = function () {
+            const nomeArquivo = file.name.split(".").slice(0, -1).join(".");
+            const fileSize = file.size;
+            imagensCarregadas.push({ img, nomeArquivo, fileSize });
+            atualizarThumbnails();
+            // Seleciona automaticamente a primeira imagem carregada
+            if (imagensCarregadas.length === 1) {
+              selecionarImagem(0);
+            }
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function atualizarThumbnails() {
+      const thumbnailContainer = document.getElementById("thumbnail-container");
+      thumbnailContainer.innerHTML = "";
+      imagensCarregadas.forEach((item, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("position-relative", "d-inline-block");
+
+        const thumbImg = document.createElement("img");
+        thumbImg.src = item.img.src;
+        thumbImg.classList.add("thumbnail");
+        if (index === imagemSelecionadaIndex) {
+          thumbImg.classList.add("selected");
+        }
+        thumbImg.addEventListener("click", () => {
+          selecionarImagem(index);
+        });
+        wrapper.appendChild(thumbImg);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "X";
+        deleteBtn.classList.add("delete-btn");
+        deleteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          excluirImagem(index);
+        });
+        wrapper.appendChild(deleteBtn);
+
+        thumbnailContainer.appendChild(wrapper);
+      });
+    }
+
+    function selecionarImagem(index) {
+      imagemSelecionadaIndex = index;
+      const thumbnails = document.querySelectorAll(".thumbnail");
+      thumbnails.forEach((thumb, i) => {
+        if (i === index) {
+          thumb.classList.add("selected");
+        } else {
+          thumb.classList.remove("selected");
+        }
+      });
+      const { img } = imagensCarregadas[index];
+      imagemOriginal = img;
+      desenharImagem(img);
+      aplicarEfeito();
+    }
+
+    function excluirImagem(index) {
+      imagensCarregadas.splice(index, 1);
+      if (imagensCarregadas.length > 0) {
+        if (imagemSelecionadaIndex >= imagensCarregadas.length) {
+          imagemSelecionadaIndex = 0;
+        }
+        selecionarImagem(imagemSelecionadaIndex);
+      } else {
+        imagemOriginal = null;
+        imagemSelecionadaIndex = 0;
+        limparCanvases();
+      }
+      atualizarThumbnails();
+    }
+
+    function limparCanvases() {
+      const originalCanvas = document.getElementById("original-canvas");
+      const effectCanvas = document.getElementById("effect-canvas");
+      const originalCtx = originalCanvas.getContext("2d");
+      const effectCtx = effectCanvas.getContext("2d");
+      originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+      effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
+      // Removemos atualizações de tamanho do canvas
+    }
+
+    function desenharImagem(img) {
+      const canvas = document.getElementById("original-canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0, img.width, img.height);
+      atualizarDownloadTamanhos(canvas, "original");
+    }
+
+    function aplicarEfeito() {
+      if (!imagemOriginal) return;
+      const canvas = document.getElementById("effect-canvas");
+      const ctx = canvas.getContext("2d");
+      const efeitoSelecionado = effectType.value;
+      const nivel = parseInt(effectRange.value);
+      canvas.width = imagemOriginal.width;
+      canvas.height = imagemOriginal.height;
+      if (efeitoSelecionado === "pixel") {
+        pixelarImagem(ctx, canvas, nivel);
+      } else {
+        blurarImagem(ctx, canvas, nivel);
+      }
+      atualizarDownloadTamanhos(canvas, "effect");
+    }
+
+    function pixelarImagem(ctx, canvas, tamanhoPixel) {
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.drawImage(imagemOriginal, 0, 0, width, height);
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      for (let y = 0; y < height; y += tamanhoPixel) {
+        for (let x = 0; x < width; x += tamanhoPixel) {
+          const index = (y * width + x) * 4;
+          const red = data[index];
+          const green = data[index + 1];
+          const blue = data[index + 2];
+          const alpha = data[index + 3];
+          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+          ctx.fillRect(x, y, tamanhoPixel, tamanhoPixel);
+        }
+      }
+    }
+
+    function blurarImagem(ctx, canvas, blurLevel) {
+      ctx.filter = `blur(${blurLevel / 10}px)`;
+      ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
+      ctx.filter = "none";
+    }
+
+    function atualizarDownloadTamanhos(canvas, prefix) {
+      ["png", "jpeg", "webp"].forEach(format => {
+        const mimeType = (format === "jpeg") ? "image/jpeg" : "image/" + format;
+        canvas.toBlob(blob => {
+          document.getElementById(prefix + '-' + format + '-size').textContent = formatFileSize(blob.size);
+        }, mimeType);
+      });
+    }
+
+    function baixarImagem(format, efeito) {
+      const canvas = efeito
+        ? document.getElementById("effect-canvas")
+        : document.getElementById("original-canvas");
+      const { nomeArquivo } = imagensCarregadas[imagemSelecionadaIndex];
+      const filename = efeito
+        ? `${nomeArquivo}.blur.${format}`
+        : `${nomeArquivo}.${format}`;
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL(`image/${format}`);
+      link.download = filename;
+      link.click();
+    }
+
+    function formatFileSize(bytes) {
+      return (bytes / 1024).toFixed(2) + " KB";
+    }
+
+    effectRange.addEventListener("input", () => {
+      effectValue.textContent = effectRange.value;
+      aplicarEfeito();
+    });
+
+    effectType.addEventListener("change", aplicarEfeito);
+  </script>
+  <!-- Bootstrap JS Bundle (opcional para funcionalidades do Bootstrap) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
