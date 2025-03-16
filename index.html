@@ -81,6 +81,7 @@
           <select id="effect" class="form-select">
             <option value="pixel">Efeito Pixel</option>
             <option value="blur">Efeito Blur</option>
+            <option value="pixelGray">Pixel Cinza</option>
           </select>
         </div>
       </div>
@@ -254,7 +255,6 @@
       const effectCtx = effectCanvas.getContext("2d");
       originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
       effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
-      // Removemos atualizações de tamanho do canvas
     }
 
     function desenharImagem(img) {
@@ -276,8 +276,10 @@
       canvas.height = imagemOriginal.height;
       if (efeitoSelecionado === "pixel") {
         pixelarImagem(ctx, canvas, nivel);
-      } else {
+      } else if (efeitoSelecionado === "blur") {
         blurarImagem(ctx, canvas, nivel);
+      } else if (efeitoSelecionado === "pixelGray") {
+        pixelarCinzaImagem(ctx, canvas, nivel);
       }
       atualizarDownloadTamanhos(canvas, "effect");
     }
@@ -305,6 +307,38 @@
       ctx.filter = `blur(${blurLevel / 10}px)`;
       ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
       ctx.filter = "none";
+    }
+
+    // Novo efeito: Pixel + Grayscale
+    function pixelarCinzaImagem(ctx, canvas, tamanhoPixel) {
+      const width = canvas.width;
+      const height = canvas.height;
+      // Primeiro, aplicamos o efeito pixel (pixelização)
+      ctx.drawImage(imagemOriginal, 0, 0, width, height);
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      for (let y = 0; y < height; y += tamanhoPixel) {
+        for (let x = 0; x < width; x += tamanhoPixel) {
+          const index = (y * width + x) * 4;
+          const red = data[index];
+          const green = data[index + 1];
+          const blue = data[index + 2];
+          const alpha = data[index + 3];
+          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+          ctx.fillRect(x, y, tamanhoPixel, tamanhoPixel);
+        }
+      }
+      // Agora, convertemos a imagem pixelada para escala de cinza
+      const pixelData = ctx.getImageData(0, 0, width, height);
+      const pdata = pixelData.data;
+      for (let i = 0; i < pdata.length; i += 4) {
+        // Usando a fórmula de luminosidade
+        const gray = 0.3 * pdata[i] + 0.59 * pdata[i + 1] + 0.11 * pdata[i + 2];
+        pdata[i] = gray;
+        pdata[i + 1] = gray;
+        pdata[i + 2] = gray;
+      }
+      ctx.putImageData(pixelData, 0, 0);
     }
 
     function atualizarDownloadTamanhos(canvas, prefix) {
