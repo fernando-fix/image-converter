@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt" data-bs-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,8 +14,10 @@
       margin-bottom: 10px;
       cursor: pointer;
       max-width: 640px;
-      margin: 0 auto;  /* Centralizada */
+      margin: 0 auto;
+      /* Centralizada */
     }
+
     #thumbnail-container {
       display: flex;
       justify-content: center;
@@ -22,6 +25,7 @@
       margin-bottom: 20px;
       flex-wrap: wrap;
     }
+
     .thumbnail {
       width: 100px;
       height: 100px;
@@ -29,23 +33,29 @@
       border: 2px solid transparent;
       cursor: pointer;
     }
+
     .thumbnail.selected {
       border: 2px solid #007bff;
     }
+
     #image-container {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 20px;
       margin-top: 20px;
     }
+
     canvas {
       border: 1px solid #ddd;
       max-width: 100%;
-      max-height: 250px; /* Previews não ultrapassam 250px de altura */
+      max-height: 250px;
+      /* Previews não ultrapassam 250px de altura */
     }
+
     .download-btn {
       margin: 5px;
     }
+
     .delete-btn {
       position: absolute;
       top: 2px;
@@ -63,10 +73,11 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container py-4">
     <h1 class="mb-4 text-center">Conversor & Efeitos de Imagem</h1>
-    
+
     <div id="drop-area" class="mb-3 text-center">
       <p>Arraste uma ou mais imagens aqui ou clique para selecionar</p>
       <input type="file" id="upload" accept="image/*" hidden multiple>
@@ -88,6 +99,7 @@
       </div>
     </div>
 
+    <!-- Slider para Nível do Efeito -->
     <div class="row mb-4">
       <div class="col-md-6 offset-md-3">
         <label class="form-label">Nível do Efeito: <span id="effect-value">20</span></label>
@@ -95,9 +107,17 @@
       </div>
     </div>
 
+    <!-- Slider para Qualidade da Conversão -->
+    <div class="row mb-4">
+      <div class="col-md-6 offset-md-3">
+        <label class="form-label">Qualidade da Conversão: <span id="quality-value">90</span>%</label>
+        <input type="range" id="quality-range" class="form-range" min="0" max="100" value="90">
+      </div>
+    </div>
+
     <div id="image-container">
       <div class="text-center">
-        <!-- Título atualizado com id para exibir informações adicionais -->
+        <!-- Título com informações da imagem original -->
         <h3 id="original-title">Imagem Original</h3>
         <canvas id="original-canvas"></canvas>
         <div class="btn-group">
@@ -132,13 +152,15 @@
 
   <script>
     let imagemOriginal = null; // Imagem atualmente selecionada
-    let imagensCarregadas = []; // Array que armazena { img, nomeArquivo, extension, fileSize }
+    let imagensCarregadas = []; // Armazena { img, nomeArquivo, extension, fileSize }
     let imagemSelecionadaIndex = 0;
 
     const dropArea = document.getElementById("drop-area");
     const uploadInput = document.getElementById("upload");
     const effectValue = document.getElementById("effect-value");
     const effectRange = document.getElementById("effect-range");
+    const qualityRange = document.getElementById("quality-range");
+    const qualityValue = document.getElementById("quality-value");
     const effectType = document.getElementById("effect");
 
     dropArea.addEventListener("click", () => uploadInput.click());
@@ -163,11 +185,21 @@
       }
     });
 
+    // Atualiza a qualidade e refaz a visualização da imagem original
+    qualityRange.addEventListener("input", () => {
+      qualityValue.textContent = qualityRange.value;
+      if (imagemOriginal) {
+        desenharImagemComQualidade(imagemOriginal);
+      }
+      // Atualiza os tamanhos de download para ambos os campos
+      atualizarDownloadTamanhos(document.getElementById("original-canvas"), "original");
+      atualizarDownloadTamanhos(document.getElementById("effect-canvas"), "effect");
+    });
+
     function carregarImagens(files) {
       imagensCarregadas = [];
       document.getElementById("thumbnail-container").innerHTML = "";
       const filesArray = Array.from(files);
-
       filesArray.forEach((file) => {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -195,7 +227,6 @@
       imagensCarregadas.forEach((item, index) => {
         const wrapper = document.createElement("div");
         wrapper.classList.add("position-relative", "d-inline-block");
-
         const thumbImg = document.createElement("img");
         thumbImg.src = item.img.src;
         thumbImg.classList.add("thumbnail");
@@ -206,7 +237,6 @@
           selecionarImagem(index);
         });
         wrapper.appendChild(thumbImg);
-
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "X";
         deleteBtn.classList.add("delete-btn");
@@ -215,7 +245,6 @@
           excluirImagem(index);
         });
         wrapper.appendChild(deleteBtn);
-
         thumbnailContainer.appendChild(wrapper);
       });
     }
@@ -228,10 +257,10 @@
       });
       const { img, fileSize, extension } = imagensCarregadas[index];
       imagemOriginal = img;
-      // Atualiza o título da imagem original com o tamanho original e a extensão
+      // Atualiza o título da imagem original com tamanho e extensão
       document.getElementById("original-title").textContent =
         `Imagem Original (${formatFileSize(fileSize)}, ${extension})`;
-      desenharImagem(img);
+      desenharImagemComQualidade(img);
       aplicarEfeito();
     }
 
@@ -259,13 +288,27 @@
       effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
     }
 
-    function desenharImagem(img) {
+    // Função para desenhar a imagem original com o parâmetro de qualidade aplicado
+    function desenharImagemComQualidade(img) {
       const canvas = document.getElementById("original-canvas");
-      const ctx = canvas.getContext("2d");
+      const quality = qualityRange ? qualityRange.value / 100 : 1;
       canvas.width = img.width;
       canvas.height = img.height;
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-      atualizarDownloadTamanhos(canvas, "original");
+      // Utiliza um canvas off-screen para obter o dataURL com qualidade definida
+      const offscreen = document.createElement("canvas");
+      offscreen.width = img.width;
+      offscreen.height = img.height;
+      const offCtx = offscreen.getContext("2d");
+      offCtx.drawImage(img, 0, 0, img.width, img.height);
+      const dataUrl = offscreen.toDataURL("image/jpeg", quality);
+      const newImg = new Image();
+      newImg.onload = () => {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(newImg, 0, 0, canvas.width, canvas.height);
+        atualizarDownloadTamanhos(canvas, "original");
+      };
+      newImg.src = dataUrl;
     }
 
     function aplicarEfeito() {
@@ -344,11 +387,15 @@
     }
 
     function atualizarDownloadTamanhos(canvas, prefix) {
+      // Obtém a qualidade (0 a 1) a partir do slider
+      const quality = qualityRange ? qualityRange.value / 100 : 1;
       ["png", "jpeg", "webp"].forEach(format => {
         const mimeType = (format === "jpeg") ? "image/jpeg" : "image/" + format;
+        // Para PNG, o parâmetro qualidade é ignorado
+        const qualityParam = (format === "png") ? undefined : quality;
         canvas.toBlob(blob => {
           document.getElementById(prefix + '-' + format + '-size').textContent = formatFileSize(blob.size);
-        }, mimeType);
+        }, mimeType, qualityParam);
       });
     }
 
@@ -357,11 +404,12 @@
         ? document.getElementById("effect-canvas")
         : document.getElementById("original-canvas");
       const { nomeArquivo } = imagensCarregadas[imagemSelecionadaIndex];
+      const quality = qualityRange ? qualityRange.value / 100 : 1;
       const filename = efeito
         ? `${nomeArquivo}.blur.${format}`
         : `${nomeArquivo}.${format}`;
       const link = document.createElement("a");
-      link.href = canvas.toDataURL(`image/${format}`);
+      link.href = canvas.toDataURL(`image/${format}`, quality);
       link.download = filename;
       link.click();
     }
@@ -380,4 +428,5 @@
   <!-- Bootstrap JS Bundle (opcional para funcionalidades do Bootstrap) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>
