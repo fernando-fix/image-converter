@@ -97,7 +97,8 @@
 
     <div id="image-container">
       <div class="text-center">
-        <h3>Imagem Original</h3>
+        <!-- Título atualizado com id para exibir informações adicionais -->
+        <h3 id="original-title">Imagem Original</h3>
         <canvas id="original-canvas"></canvas>
         <div class="btn-group">
           <button class="btn btn-primary download-btn" onclick="baixarImagem('png', false)">
@@ -131,7 +132,7 @@
 
   <script>
     let imagemOriginal = null; // Imagem atualmente selecionada
-    let imagensCarregadas = []; // Array que armazena { img, nomeArquivo, fileSize }
+    let imagensCarregadas = []; // Array que armazena { img, nomeArquivo, extension, fileSize }
     let imagemSelecionadaIndex = 0;
 
     const dropArea = document.getElementById("drop-area");
@@ -166,14 +167,16 @@
       imagensCarregadas = [];
       document.getElementById("thumbnail-container").innerHTML = "";
       const filesArray = Array.from(files);
+
       filesArray.forEach((file) => {
         const reader = new FileReader();
         reader.onload = function (e) {
           const img = new Image();
           img.onload = function () {
             const nomeArquivo = file.name.split(".").slice(0, -1).join(".");
+            const extension = file.name.split(".").pop();
             const fileSize = file.size;
-            imagensCarregadas.push({ img, nomeArquivo, fileSize });
+            imagensCarregadas.push({ img, nomeArquivo, extension, fileSize });
             atualizarThumbnails();
             // Seleciona automaticamente a primeira imagem carregada
             if (imagensCarregadas.length === 1) {
@@ -192,6 +195,7 @@
       imagensCarregadas.forEach((item, index) => {
         const wrapper = document.createElement("div");
         wrapper.classList.add("position-relative", "d-inline-block");
+
         const thumbImg = document.createElement("img");
         thumbImg.src = item.img.src;
         thumbImg.classList.add("thumbnail");
@@ -202,6 +206,7 @@
           selecionarImagem(index);
         });
         wrapper.appendChild(thumbImg);
+
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "X";
         deleteBtn.classList.add("delete-btn");
@@ -210,6 +215,7 @@
           excluirImagem(index);
         });
         wrapper.appendChild(deleteBtn);
+
         thumbnailContainer.appendChild(wrapper);
       });
     }
@@ -220,8 +226,11 @@
       thumbnails.forEach((thumb, i) => {
         thumb.classList.toggle("selected", i === index);
       });
-      const { img } = imagensCarregadas[index];
+      const { img, fileSize, extension } = imagensCarregadas[index];
       imagemOriginal = img;
+      // Atualiza o título da imagem original com o tamanho original e a extensão
+      document.getElementById("original-title").textContent =
+        `Imagem Original (${formatFileSize(fileSize)}, ${extension})`;
       desenharImagem(img);
       aplicarEfeito();
     }
@@ -318,7 +327,7 @@
       ctx.putImageData(pixelData, 0, 0);
     }
 
-    // Novo efeito: Desfoque Cinza (Blur + Grayscale)
+    // Efeito: Desfoque Cinza (Blur + Grayscale)
     function blurCinzaImagem(ctx, canvas, blurLevel) {
       ctx.filter = `blur(${blurLevel / 10}px)`;
       ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
