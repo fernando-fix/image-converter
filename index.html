@@ -80,8 +80,9 @@
           <label class="input-group-text" for="effect">Efeito</label>
           <select id="effect" class="form-select">
             <option value="pixel">Efeito Pixel</option>
-            <option value="blur">Efeito Blur</option>
+            <option value="blur">Desfoque</option>
             <option value="pixelGray">Pixel Cinza</option>
+            <option value="blurGray">Desfoque Cinza</option>
           </select>
         </div>
       </div>
@@ -165,7 +166,6 @@
       imagensCarregadas = [];
       document.getElementById("thumbnail-container").innerHTML = "";
       const filesArray = Array.from(files);
-
       filesArray.forEach((file) => {
         const reader = new FileReader();
         reader.onload = function (e) {
@@ -192,7 +192,6 @@
       imagensCarregadas.forEach((item, index) => {
         const wrapper = document.createElement("div");
         wrapper.classList.add("position-relative", "d-inline-block");
-
         const thumbImg = document.createElement("img");
         thumbImg.src = item.img.src;
         thumbImg.classList.add("thumbnail");
@@ -203,7 +202,6 @@
           selecionarImagem(index);
         });
         wrapper.appendChild(thumbImg);
-
         const deleteBtn = document.createElement("button");
         deleteBtn.textContent = "X";
         deleteBtn.classList.add("delete-btn");
@@ -212,7 +210,6 @@
           excluirImagem(index);
         });
         wrapper.appendChild(deleteBtn);
-
         thumbnailContainer.appendChild(wrapper);
       });
     }
@@ -221,11 +218,7 @@
       imagemSelecionadaIndex = index;
       const thumbnails = document.querySelectorAll(".thumbnail");
       thumbnails.forEach((thumb, i) => {
-        if (i === index) {
-          thumb.classList.add("selected");
-        } else {
-          thumb.classList.remove("selected");
-        }
+        thumb.classList.toggle("selected", i === index);
       });
       const { img } = imagensCarregadas[index];
       imagemOriginal = img;
@@ -280,6 +273,8 @@
         blurarImagem(ctx, canvas, nivel);
       } else if (efeitoSelecionado === "pixelGray") {
         pixelarCinzaImagem(ctx, canvas, nivel);
+      } else if (efeitoSelecionado === "blurGray") {
+        blurCinzaImagem(ctx, canvas, nivel);
       }
       atualizarDownloadTamanhos(canvas, "effect");
     }
@@ -309,34 +304,32 @@
       ctx.filter = "none";
     }
 
-    // Novo efeito: Pixel + Grayscale
+    // Efeito: Pixel + Cinza
     function pixelarCinzaImagem(ctx, canvas, tamanhoPixel) {
-      const width = canvas.width;
-      const height = canvas.height;
-      // Primeiro, aplicamos o efeito pixel (pixelização)
-      ctx.drawImage(imagemOriginal, 0, 0, width, height);
-      const imageData = ctx.getImageData(0, 0, width, height);
-      const data = imageData.data;
-      for (let y = 0; y < height; y += tamanhoPixel) {
-        for (let x = 0; x < width; x += tamanhoPixel) {
-          const index = (y * width + x) * 4;
-          const red = data[index];
-          const green = data[index + 1];
-          const blue = data[index + 2];
-          const alpha = data[index + 3];
-          ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
-          ctx.fillRect(x, y, tamanhoPixel, tamanhoPixel);
-        }
-      }
-      // Agora, convertemos a imagem pixelada para escala de cinza
-      const pixelData = ctx.getImageData(0, 0, width, height);
-      const pdata = pixelData.data;
+      pixelarImagem(ctx, canvas, tamanhoPixel);
+      let pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let pdata = pixelData.data;
       for (let i = 0; i < pdata.length; i += 4) {
-        // Usando a fórmula de luminosidade
         const gray = 0.3 * pdata[i] + 0.59 * pdata[i + 1] + 0.11 * pdata[i + 2];
         pdata[i] = gray;
         pdata[i + 1] = gray;
         pdata[i + 2] = gray;
+      }
+      ctx.putImageData(pixelData, 0, 0);
+    }
+
+    // Novo efeito: Desfoque Cinza (Blur + Grayscale)
+    function blurCinzaImagem(ctx, canvas, blurLevel) {
+      ctx.filter = `blur(${blurLevel / 10}px)`;
+      ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
+      ctx.filter = "none";
+      let pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let data = pixelData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
       }
       ctx.putImageData(pixelData, 0, 0);
     }
