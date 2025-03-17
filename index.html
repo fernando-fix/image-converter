@@ -102,8 +102,8 @@
     <!-- Slider para Nível do Efeito -->
     <div class="row mb-4">
       <div class="col-md-6 offset-md-3">
-        <label class="form-label">Nível do Efeito: <span id="effect-value">20</span></label>
-        <input type="range" id="effect-range" class="form-range" min="2" max="50" value="20">
+        <label class="form-label">Nível do Efeito: <span id="effect-value">8</span></label>
+        <input type="range" id="effect-range" class="form-range" min="2" max="50" value="8">
       </div>
     </div>
 
@@ -410,7 +410,7 @@
       const { nomeArquivo } = imagensCarregadas[imagemSelecionadaIndex];
       const quality = qualityRange ? qualityRange.value / 100 : 1;
       const filename = efeito
-        ? `${nomeArquivo}.blur.${format}`
+        ? `${nomeArquivo}.${format}.blur.${format}`
         : `${nomeArquivo}.${format}`;
       const link = document.createElement("a");
       link.href = canvas.toDataURL(`image/${format}`, quality);
