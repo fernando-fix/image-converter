@@ -15,7 +15,6 @@
       cursor: pointer;
       max-width: 640px;
       margin: 0 auto;
-      /* Centralizada */
     }
 
     #thumbnail-container {
@@ -49,7 +48,6 @@
       border: 1px solid #ddd;
       max-width: 100%;
       max-height: 250px;
-      /* Previews não ultrapassam 250px de altura */
     }
 
     .download-btn {
@@ -184,11 +182,10 @@
       }
     });
 
-    // Atualiza a qualidade e refaz a visualização da imagem original se for JPEG/WEBP (PNG permanece inalterado)
+    // Atualiza a qualidade e refaz a visualização da imagem original se for JPEG/WebP (PNG permanece inalterado)
     qualityRange.addEventListener("input", () => {
       qualityValue.textContent = qualityRange.value;
       if (imagemOriginal) {
-        // Recupera a extensão da imagem atual
         const { extension } = imagensCarregadas[imagemSelecionadaIndex];
         desenharImagemComQualidade(imagemOriginal, extension);
       }
@@ -286,15 +283,14 @@
       effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
     }
 
-    // Se a imagem for PNG, desenha-a diretamente para manter a transparência;
+    // Se a imagem for PNG ou WebP, desenha-a diretamente para manter a transparência;
     // caso contrário, re-encoda com a qualidade definida (usando JPEG)
     function desenharImagemComQualidade(img, extension) {
       const canvas = document.getElementById("original-canvas");
       const ctx = canvas.getContext("2d");
       canvas.width = img.width;
       canvas.height = img.height;
-      if (extension.toLowerCase() === "png") {
-        // Desenha diretamente para manter a transparência
+      if (["png", "webp"].includes(extension.toLowerCase())) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, img.width, img.height);
         atualizarDownloadTamanhos(canvas, "original");
@@ -305,7 +301,6 @@
         offscreen.height = img.height;
         const offCtx = offscreen.getContext("2d");
         offCtx.drawImage(img, 0, 0, img.width, img.height);
-        // Utiliza JPEG para re-encoding com qualidade
         const dataUrl = offscreen.toDataURL("image/jpeg", quality);
         const newImg = new Image();
         newImg.onload = () => {
@@ -410,10 +405,14 @@
       const { nomeArquivo } = imagensCarregadas[imagemSelecionadaIndex];
       const quality = qualityRange ? qualityRange.value / 100 : 1;
       const filename = efeito
-        ? `${nomeArquivo}.${format}.blur.${format}`
+        ? `${nomeArquivo}.${format}.modificado.${format}`
         : `${nomeArquivo}.${format}`;
       const link = document.createElement("a");
-      link.href = canvas.toDataURL(`image/${format}`, quality);
+      if (format === "webp") {
+        link.href = canvas.toDataURL("image/webp", quality);
+      } else {
+        link.href = canvas.toDataURL(`image/${format}`, quality);
+      }
       link.download = filename;
       link.click();
     }
