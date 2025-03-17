@@ -405,7 +405,7 @@
       const { nomeArquivo } = imagensCarregadas[imagemSelecionadaIndex];
       const quality = qualityRange ? qualityRange.value / 100 : 1;
       const filename = efeito
-        ? `${nomeArquivo}.${format}.modificado.${format}`
+        ? `${nomeArquivo}.${format}.blur.${format}`
         : `${nomeArquivo}.${format}`;
       const link = document.createElement("a");
       if (format === "webp") {
