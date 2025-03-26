@@ -290,7 +290,7 @@
       const ctx = canvas.getContext("2d");
       canvas.width = img.width;
       canvas.height = img.height;
-      if (["png", "webp"].includes(extension.toLowerCase())) {
+      if (["png", "webp", "svg"].includes(extension.toLowerCase())) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, img.width, img.height);
         atualizarDownloadTamanhos(canvas, "original");
